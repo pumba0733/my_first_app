@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "465431588894",
+    "project_id": "myfirstappguitarmac1",
+    "storage_bucket": "myfirstappguitarmac1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:465431588894:android:578d28619285256af0be0f",
+        "android_client_info": {
+          "package_name": "com.example.my_first_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqth04G7oEEWkKM-eR8Y42vsJL04kUS1w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
