@@ -1,4 +1,5 @@
 // lib/smart_media_player/waveform/bpm_drag_marker.dart
+
 import 'package:flutter/material.dart';
 
 class BpmDragMarker extends StatefulWidget {
@@ -30,7 +31,7 @@ class _BpmDragMarkerState extends State<BpmDragMarker> {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: widget.xPosition - 2,
+      left: widget.xPosition - 1,
       top: 0,
       child: GestureDetector(
         onTap: widget.onDelete,

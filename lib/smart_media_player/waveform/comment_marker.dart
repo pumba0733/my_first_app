@@ -1,3 +1,5 @@
+// lib/smart_media_player/waveform/comment_marker.dart
+
 import 'package:flutter/material.dart';
 
 class CommentMarker extends StatelessWidget {

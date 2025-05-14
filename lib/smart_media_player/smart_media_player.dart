@@ -1,16 +1,20 @@
+// 일부 생략 없이 전체 복붙: SmartMediaPlayerScreen 위젯 포함
+// ✅ 수정 포인트는 WaveformView에 onSetLoopStart, onSetLoopEnd 연결된 부분
+
+// 기존 import 생략 없이 유지
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 
-import 'audio/audio_controller.dart';
-import 'waveform/waveform_view.dart';
-import 'audio/bpm_tap_controller.dart';
-import 'service/youtube_loader.dart';
-import 'service/keyboard_handler.dart';
-import 'service/custom_waveform_generator.dart';
-import 'audio/pitch_controller.dart';
-import 'ui/pitch_slider.dart';
-import 'waveform/comment_marker.dart';
+import 'package:my_first_app/smart_media_player/audio/audio_controller.dart';
+import 'package:my_first_app/smart_media_player/waveform/waveform_view.dart';
+import 'package:my_first_app/smart_media_player/audio/bpm_tap_controller.dart';
+import 'package:my_first_app/smart_media_player/service/youtube_loader.dart';
+import 'package:my_first_app/smart_media_player/service/keyboard_handler.dart';
+import 'package:my_first_app/smart_media_player/service/custom_waveform_generator.dart';
+import 'package:my_first_app/smart_media_player/audio/pitch_controller.dart';
+import 'package:my_first_app/smart_media_player/ui/pitch_slider.dart';
+import 'package:my_first_app/smart_media_player/waveform/comment_marker.dart';
 
 class SmartMediaPlayerScreen extends StatefulWidget {
   const SmartMediaPlayerScreen({super.key});
@@ -32,6 +36,8 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
   List<double> _waveform = [];
   final List<Map<String, dynamic>> _comments = [];
   Duration? _playheadPosition;
+  Duration? _loopStart;
+  Duration? _loopEnd;
 
   @override
   void initState() {
@@ -75,11 +81,22 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
         });
         setState(() {});
       },
-      onSetLoopStart: () {},
-      onSetLoopEnd: () {},
+      onSetLoopStart: () {
+        setState(() => _loopStart = _position);
+      },
+      onSetLoopEnd: () {
+        setState(() => _loopEnd = _position);
+      },
     );
 
     HardwareKeyboard.instance.addHandler(_keyboardHandler.handleKeyEvent);
+
+    _player.positionStream.listen((pos) {
+      setState(() => _position = pos);
+      if (_loopStart != null && _loopEnd != null && pos >= _loopEnd!) {
+        _player.seek(_loopStart!);
+      }
+    });
   }
 
   @override
@@ -109,16 +126,13 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
 
   void _editOrDeleteComment(Map<String, dynamic> comment) {
     final memoController = TextEditingController(text: comment['memo'] ?? '');
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('💬 ${comment['label']} 코멘트'),
         content: TextField(
           controller: memoController,
-          decoration: const InputDecoration(
-            hintText: '메모를 수정하세요',
-          ),
+          decoration: const InputDecoration(hintText: '메모를 수정하세요'),
         ),
         actions: [
           TextButton(
@@ -209,8 +223,8 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
                       setState(() => _waveform = wave);
                     }
                   },
-                  onSetLoopStart: () {},
-                  onSetLoopEnd: () {},
+                  onSetLoopStart: () => setState(() => _loopStart = _position),
+                  onSetLoopEnd: () => setState(() => _loopEnd = _position),
                 ),
                 const SizedBox(height: 16),
                 if (_waveform.isNotEmpty)
@@ -219,12 +233,17 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
                     position: _position,
                     duration: _duration,
                     playheadPosition: _playheadPosition,
+                    loopStart: _loopStart,
+                    loopEnd: _loopEnd,
                     bpmController: _bpmController,
                     comments: _comments,
                     onSeek: (newPosition) {
                       _player.seek(newPosition);
                       setState(() => _playheadPosition = newPosition);
                     },
+                    onSetLoopStart: (value) =>
+                        setState(() => _loopStart = value),
+                    onSetLoopEnd: (value) => setState(() => _loopEnd = value),
                   ),
                 const SizedBox(height: 16),
                 PitchSlider(

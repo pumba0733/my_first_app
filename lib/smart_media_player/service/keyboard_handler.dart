@@ -1,3 +1,5 @@
+// lib/smart_media_player/service/keyboard_handler.dart
+
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -25,10 +27,17 @@ class KeyboardHandler {
   bool handleKeyEvent(KeyEvent event) {
     final key = event.logicalKey.keyLabel.toLowerCase();
 
-    // ⬅️ ➡️ 누르고 있는 동안만 1.5배속 재생
-    if (key == 'arrow left' || key == 'arrow right') {
+    // 방향키 ←/→ 누르고 있는 동안만 1.5배속 재생
+    if ((key == 'arrow left' || key == 'arrow right') && player.playing) {
       if (event is KeyDownEvent && !_isArrowPressed) {
         _isArrowPressed = true;
+
+        if (key == 'arrow left') {
+          onSeekRelative(Duration(milliseconds: -500));
+        } else {
+          onSeekRelative(Duration(milliseconds: 500));
+        }
+
         player.setSpeed(1.5);
         player.play();
         return true;
@@ -36,13 +45,13 @@ class KeyboardHandler {
 
       if (event is KeyUpEvent) {
         _isArrowPressed = false;
-        player.pause();
         player.setSpeed(1.0);
+        player.play();
         return true;
       }
     }
 
-    // 일반 단축키
+    // 일반 단축키는 KeyDown만 처리
     if (event is! KeyDownEvent) return false;
 
     switch (key) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:just_audio/just_audio.dart';
 import '../audio/bpm_tap_controller.dart';
 import 'waveform_painter.dart';
 import 'bpm_drag_marker.dart';
@@ -13,9 +13,13 @@ class WaveformView extends StatefulWidget {
   final Duration position;
   final Duration duration;
   final Duration? playheadPosition;
+  final Duration? loopStart;
+  final Duration? loopEnd;
   final BpmTapController bpmController;
   final List<Map<String, dynamic>> comments;
   final void Function(Duration) onSeek;
+  final void Function(Duration) onSetLoopStart;
+  final void Function(Duration) onSetLoopEnd;
 
   const WaveformView({
     super.key,
@@ -23,9 +27,13 @@ class WaveformView extends StatefulWidget {
     required this.position,
     required this.duration,
     required this.playheadPosition,
+    required this.loopStart,
+    required this.loopEnd,
     required this.bpmController,
     required this.comments,
     required this.onSeek,
+    required this.onSetLoopStart,
+    required this.onSetLoopEnd,
   });
 
   @override
@@ -36,36 +44,43 @@ class _WaveformViewState extends State<WaveformView> {
   final FocusNode _focusNode = FocusNode();
   double _zoom = 1.0;
 
-  Duration? _loopStart;
-  Duration? _loopEnd;
+  Duration? _clickStartPosition;
+  Duration? _dragEndPosition;
   bool _isDraggingLoop = false;
+
+  late AudioPlayer _player;
 
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleKey);
     Future.delayed(Duration.zero, () => _focusNode.requestFocus());
+
+    _player = AudioPlayer();
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleKey);
+    _player.dispose();
     super.dispose();
   }
 
   bool _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
-
     final key = event.logicalKey.keyLabel.toLowerCase();
     switch (key) {
-      case 'b':
-        widget.bpmController.addMark(widget.position);
-        return true;
       case 'e':
-        setState(() => _loopStart = widget.position);
+        if (_clickStartPosition != null) {
+          widget.onSetLoopStart(_clickStartPosition!);
+        }
         return true;
       case 'd':
-        setState(() => _loopEnd = widget.position);
+        if (_dragEndPosition != null) {
+          widget.onSetLoopEnd(_dragEndPosition!);
+        } else {
+          widget.onSetLoopEnd(widget.position);
+        }
         return true;
       default:
         return false;
@@ -81,7 +96,7 @@ class _WaveformViewState extends State<WaveformView> {
       return BpmDragMarker(
         xPosition: x,
         height: 80,
-        onDragStart: () {}, // 필요 시 null로 대체 가능
+        onDragStart: () {},
         onDragUpdate: (newX) {
           final newRatio = newX / width;
           final newPosition = Duration(
@@ -91,8 +106,10 @@ class _WaveformViewState extends State<WaveformView> {
           );
           widget.bpmController.updateMark(index, newPosition);
         },
-        onDragEnd: () {}, // 필요 시 null로 대체 가능
-        onDelete: () => setState(() => widget.bpmController.removeMark(mark)),
+        onDragEnd: () {},
+        onDelete: () {
+          widget.bpmController.removeMark(mark);
+        },
       );
     });
   }
@@ -103,39 +120,59 @@ class _WaveformViewState extends State<WaveformView> {
     final newDuration = Duration(
       milliseconds: (widget.duration.inMilliseconds * ratio).toInt(),
     );
+
+    _player.pause();
+
+    setState(() {
+      _clickStartPosition = newDuration;
+    });
+
     widget.onSeek(newDuration);
   }
 
   void _handleDragStart(DragStartDetails details, double width) {
+    _player.pause();
+
     setState(() {
       _isDraggingLoop = true;
       final localX = details.localPosition.dx;
       final ratio = localX / width;
-      _loopStart = Duration(
+      _clickStartPosition = Duration(
         milliseconds: (widget.duration.inMilliseconds * ratio).toInt(),
       );
-      _loopEnd = null; // 일단 초기화
+      _dragEndPosition = null;
     });
   }
 
   void _handleDragUpdate(DragUpdateDetails details, double width) {
-    if (!_isDraggingLoop || _loopStart == null) return;
+    if (!_isDraggingLoop || _clickStartPosition == null) return;
 
     final localX = details.localPosition.dx;
     final ratio = localX / width;
-    final newEnd = Duration(
+    final end = Duration(
       milliseconds: (widget.duration.inMilliseconds * ratio)
           .clamp(0, widget.duration.inMilliseconds)
           .toInt(),
     );
 
     setState(() {
-      _loopEnd = newEnd;
+      _dragEndPosition = end;
     });
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    setState(() => _isDraggingLoop = false);
+    setState(() {
+      _isDraggingLoop = false;
+    });
+
+    if (_clickStartPosition != null && _dragEndPosition != null) {
+      final start = _clickStartPosition!;
+      final end = _dragEndPosition!;
+      if (end > start) {
+        widget.onSetLoopStart(start);
+        widget.onSetLoopEnd(end);
+      }
+    }
   }
 
   @override
@@ -180,19 +217,25 @@ class _WaveformViewState extends State<WaveformView> {
                           bpmMarks: widget.bpmController.bpmMarks,
                           currentPosition: widget.position,
                           totalDuration: widget.duration,
-                          loopStart: _loopStart,
-                          loopEnd: _loopEnd,
+                          loopStart: widget.loopStart,
+                          loopEnd: widget.loopEnd,
                         ),
                       ),
                       ..._buildMarkers(width),
+                      if (_clickStartPosition != null)
+                        PlaybackStartMarker(
+                          startPosition: _clickStartPosition!,
+                          duration: widget.duration,
+                          width: width,
+                        ),
                       PlayheadMarker(
                         position: widget.position,
                         duration: widget.duration,
                         width: width,
                       ),
                       AbLoopHighlight(
-                        loopStart: _loopStart,
-                        loopEnd: _loopEnd,
+                        loopStart: widget.loopStart,
+                        loopEnd: widget.loopEnd,
                         totalDuration: widget.duration,
                         waveformWidth: width,
                       ),

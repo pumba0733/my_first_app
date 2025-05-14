@@ -26,7 +26,7 @@ class Lesson extends HiveObject {
 
   // 🎯 SmartMediaPlayer 연동 필드
   @HiveField(7)
-  double playbackSpeed;
+  double? playbackSpeed; // 🔧 null 허용으로 변경
 
   @HiveField(8)
   int pitch;

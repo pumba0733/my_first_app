@@ -18,7 +18,6 @@ dependencies:
   url_launcher: ^6.2.1
   path_provider: ^2.1.5 # ✅ macOS 지원 포함된 버전
   just_audio: ^0.9.34
-  file_picker: ^5.2.10
   audio_session: ^0.1.14
   youtube_player_flutter: ^8.1.1
   audio_waveforms: ^1.0.6

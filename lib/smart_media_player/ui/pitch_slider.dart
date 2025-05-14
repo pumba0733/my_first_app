@@ -1,3 +1,5 @@
+// lib/smart_media_player/ui/pitch_slider.dart
+
 import 'package:flutter/material.dart';
 
 class PitchSlider extends StatelessWidget {

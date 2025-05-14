@@ -1,5 +1,8 @@
+// lib/smart_media_player/audio/audio_controller.dart
+
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:just_audio/just_audio.dart';
 import '../service/youtube_loader.dart';
 
@@ -44,18 +47,53 @@ class _AudioControllerState extends State<AudioController> {
     widget.player.positionStream.listen((p) {
       widget.onPositionChanged(p);
     });
+    widget.player.speedStream.listen((s) {
+      setState(() => _speed = s);
+    });
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
-    if (result != null && result.files.single.path != null) {
-      final filePath = result.files.single.path!;
+    String? filePath;
+
+    if (Platform.isMacOS) {
+      filePath = await _openMacOSFilePicker();
+    } else {
+      // TODO: 다른 플랫폼 처리 필요 시 추가
+    }
+
+    if (filePath != null) {
+      print('🎧 선택된 파일 경로: $filePath');
       widget.ytLoader.pause();
       widget.ytLoader.dispose();
 
-      await widget.player.setFilePath(filePath);
+      await widget.player.setAudioSource(
+        AudioSource.uri(Uri.file(filePath), tag: filePath),
+      );
       await widget.player.setVolume(_volume);
       await widget.player.setSpeed(_speed);
+    }
+  }
+
+  Future<String?> _openMacOSFilePicker() async {
+    final script = '''
+    set selectedFile to choose file of type {"public.audio"} with prompt "음원 파일을 선택하세요"
+    set filePath to POSIX path of selectedFile
+    return filePath
+  ''';
+
+    try {
+      final result = await Process.run('osascript', ['-e', script]);
+
+      if (result.exitCode == 0) {
+        final output = result.stdout.toString().trim();
+        return output.isNotEmpty ? output : null;
+      } else {
+        print('❌ stderr: ${result.stderr}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ osascript 실행 오류: $e');
+      return null;
     }
   }
 

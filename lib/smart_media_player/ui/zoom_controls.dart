@@ -1,3 +1,5 @@
+// lib/smart_media_player/ui/zoom_controls.dart
+
 import 'package:flutter/material.dart';
 
 class ZoomControls extends StatelessWidget {

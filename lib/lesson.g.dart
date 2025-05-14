@@ -24,7 +24,7 @@ class LessonAdapter extends TypeAdapter<Lesson> {
       audioPaths: (fields[4] as List).cast<String>(),
       nextPlan: fields[5] as String,
       studentId: fields[6] as String,
-      playbackSpeed: fields[7] as double,
+      playbackSpeed: fields[7] as double?,
       pitch: fields[8] as int,
       loopStart: fields[9] as Duration?,
       loopEnd: fields[10] as Duration?,

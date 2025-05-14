@@ -1,3 +1,5 @@
+// lib/smart_media_player/ui/comment_widget.dart
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
