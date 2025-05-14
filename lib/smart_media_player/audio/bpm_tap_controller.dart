@@ -1,5 +1,4 @@
 // lib/smart_media_player/audio/bpm_tap_controller.dart
-
 import 'package:flutter/material.dart';
 
 class BpmTapController extends ChangeNotifier {

@@ -1,5 +1,4 @@
 // lib/smart_media_player/audio/audio_controller.dart
-
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -105,14 +104,16 @@ class _AudioControllerState extends State<AudioController> {
     widget.player.stop();
   }
 
-  void _startFastSeek() {
-    widget.player.setSpeed(1.5);
-    widget.player.play();
-  }
+  void _startFastSeek({bool forward = true}) {
+    final offset = Duration(milliseconds: forward ? 500 : -500);
+    final newPosition = widget.player.position + offset;
+    final duration = widget.player.duration ?? widget.player.position;
 
-  void _stopFastSeek() {
-    widget.player.pause();
-    widget.player.setSpeed(_speed);
+    final clamped = newPosition < Duration.zero
+        ? Duration.zero
+        : (newPosition > duration ? duration : newPosition);
+
+    widget.player.seek(clamped);
   }
 
   @override
@@ -135,17 +136,15 @@ class _AudioControllerState extends State<AudioController> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             GestureDetector(
-              onTapDown: (_) => _startFastSeek(),
-              onTapUp: (_) => _stopFastSeek(),
-              onTapCancel: _stopFastSeek,
+              onTapDown: (_) => _startFastSeek(forward: false),
               child: const Icon(Icons.fast_rewind, size: 36),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 24),
             IconButton(
               icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
               iconSize: 48,
@@ -156,59 +155,78 @@ class _AudioControllerState extends State<AudioController> {
                 });
               },
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 24),
             GestureDetector(
-              onTapDown: (_) => _startFastSeek(),
-              onTapUp: (_) => _stopFastSeek(),
-              onTapCancel: _stopFastSeek,
+              onTapDown: (_) => _startFastSeek(forward: true),
               child: const Icon(Icons.fast_forward, size: 36),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Slider(
-          value: _speed,
-          min: 0.5,
-          max: 2.0,
-          divisions: 15,
-          label: '${_speed.toStringAsFixed(2)}x',
-          onChanged: (value) {
-            setState(() {
-              _speed = value;
-              widget.player.setSpeed(_speed);
-            });
-          },
-        ),
-        const Text('🔉 볼륨 조절'),
-        Slider(
-          value: _volume,
-          min: 0.0,
-          max: 1.0,
-          divisions: 10,
-          label: '${(_volume * 100).toInt()}%',
-          onChanged: (value) {
-            setState(() {
-              _volume = value;
-              widget.player.setVolume(_volume);
-            });
-          },
-        ),
-        const Divider(),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton(
-              onPressed: widget.onSetLoopStart,
-              child: const Text('A 지점'),
+            ...[0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map((s) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _speed = s;
+                      widget.player.setSpeed(_speed);
+                    });
+                  },
+                  child: Text('${(s * 100).toInt()}%'),
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  const Text('⏱ 템포'),
+                  Slider(
+                    value: _speed,
+                    min: 0.5,
+                    max: 2.0,
+                    divisions: 150,
+                    label: '${(_speed * 100).toInt()}%',
+                    onChanged: (value) {
+                      setState(() {
+                        _speed = value;
+                        widget.player.setSpeed(_speed);
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 10),
-            ElevatedButton(
-              onPressed: widget.onSetLoopEnd,
-              child: const Text('B 지점'),
+            Expanded(
+              child: Column(
+                children: [
+                  const Text('🔉 볼륨'),
+                  Slider(
+                    value: _volume,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 100,
+                    label: '${(_volume * 100).toInt()}%',
+                    onChanged: (value) {
+                      setState(() {
+                        _volume = value;
+                        widget.player.setVolume(_volume);
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        const Divider(),
       ],
     );
   }

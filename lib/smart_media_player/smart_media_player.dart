@@ -1,20 +1,17 @@
-// 일부 생략 없이 전체 복붙: SmartMediaPlayerScreen 위젯 포함
-// ✅ 수정 포인트는 WaveformView에 onSetLoopStart, onSetLoopEnd 연결된 부분
-
-// 기존 import 생략 없이 유지
+// lib/smart_media_player/smart_media_player.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 
-import 'package:my_first_app/smart_media_player/audio/audio_controller.dart';
-import 'package:my_first_app/smart_media_player/waveform/waveform_view.dart';
-import 'package:my_first_app/smart_media_player/audio/bpm_tap_controller.dart';
-import 'package:my_first_app/smart_media_player/service/youtube_loader.dart';
-import 'package:my_first_app/smart_media_player/service/keyboard_handler.dart';
-import 'package:my_first_app/smart_media_player/service/custom_waveform_generator.dart';
-import 'package:my_first_app/smart_media_player/audio/pitch_controller.dart';
-import 'package:my_first_app/smart_media_player/ui/pitch_slider.dart';
-import 'package:my_first_app/smart_media_player/waveform/comment_marker.dart';
+import 'audio/audio_controller.dart';
+import 'waveform/waveform_view.dart';
+import 'audio/bpm_tap_controller.dart';
+import 'service/youtube_loader.dart';
+import 'service/keyboard_handler.dart';
+import 'service/custom_waveform_generator.dart';
+import 'audio/pitch_controller.dart';
+import 'ui/pitch_slider.dart';
+import 'waveform/comment_marker.dart';
 
 class SmartMediaPlayerScreen extends StatefulWidget {
   const SmartMediaPlayerScreen({super.key});
@@ -28,8 +25,8 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
   final YouTubeLoader _ytLoader = YouTubeLoader();
   final TextEditingController _ytController = TextEditingController();
   final BpmTapController _bpmController = BpmTapController();
+  final PitchController _pitchController = PitchController();
   late KeyboardHandler _keyboardHandler;
-  late PitchController _pitchController;
 
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
@@ -38,12 +35,12 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
   Duration? _playheadPosition;
   Duration? _loopStart;
   Duration? _loopEnd;
+  final TextEditingController _bottomCommentController =
+      TextEditingController();
 
   @override
   void initState() {
     super.initState();
-
-    _pitchController = PitchController(player: _player);
 
     _keyboardHandler = KeyboardHandler(
       player: _player,
@@ -64,9 +61,10 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
       },
       onSeekRelative: (offset) {
         final newPosition = _player.position + offset;
-        final clampedPosition = (newPosition < Duration.zero)
+        final clampedPosition = newPosition < Duration.zero
             ? Duration.zero
             : (newPosition > _duration ? _duration : newPosition);
+
         _player.seek(clampedPosition);
         setState(() {
           _playheadPosition = clampedPosition;
@@ -126,13 +124,23 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
 
   void _editOrDeleteComment(Map<String, dynamic> comment) {
     final memoController = TextEditingController(text: comment['memo'] ?? '');
+    final labelController = TextEditingController(text: comment['label'] ?? '');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('💬 ${comment['label']} 코멘트'),
-        content: TextField(
-          controller: memoController,
-          decoration: const InputDecoration(hintText: '메모를 수정하세요'),
+        title: const Text('💬 코멘트 수정'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: labelController,
+              decoration: const InputDecoration(labelText: '코멘트 이름'),
+            ),
+            TextField(
+              controller: memoController,
+              decoration: const InputDecoration(labelText: '메모 입력'),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -148,6 +156,7 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
           TextButton(
             onPressed: () {
               setState(() {
+                comment['label'] = labelController.text;
                 comment['memo'] = memoController.text;
               });
               Navigator.pop(context);
@@ -173,7 +182,7 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
             Text('[↑ / ↓] 속도 5% 느리게/빠르게'),
             Text('[5~0] 속도 50~100% 설정'),
             Text('[S] 현재 위치에 코멘트 추가'),
-            Text('[E / D] A-B 루프 시작/종료'),
+            Text('[E / D] 반복 구간 시작/종료'),
             Text('[B] BPM 마커 추가'),
           ],
         ),
@@ -217,9 +226,7 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
                     if (path != null) {
                       final generator = createWaveformGenerator();
                       final wave = await generator.generateWaveform(
-                        path,
-                        path.split('/').last,
-                      );
+                          path, path.split('/').last);
                       setState(() => _waveform = wave);
                     }
                   },
@@ -247,12 +254,23 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
                   ),
                 const SizedBox(height: 16),
                 PitchSlider(
-                  pitch: _pitchController.pitch.toDouble(),
-                  onChanged: (semitone) {
-                    setState(() => _pitchController.setPitch(semitone.toInt()));
+                  pitch: _pitchController.pitch,
+                  onChanged: (value) {
+                    setState(() {
+                      _pitchController.setPitch(value);
+                    });
                   },
                 ),
-                const SizedBox(height: 80),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _bottomCommentController,
+                  decoration: const InputDecoration(
+                    labelText: '📝 수업 코멘트 입력',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 40),
               ],
             ),
             if (_waveform.isNotEmpty)

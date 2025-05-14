@@ -1,3 +1,4 @@
+// lib/smart_media_player/waveform/waveform_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -7,6 +8,7 @@ import 'bpm_drag_marker.dart';
 import '../ui/zoom_controls.dart';
 import 'playhead_marker.dart';
 import 'ab_loop_highlight.dart';
+import 'waveform_timeline.dart'; // 추가
 
 class WaveformView extends StatefulWidget {
   final List<double> waveform;
@@ -69,27 +71,86 @@ class _WaveformViewState extends State<WaveformView> {
   bool _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
     final key = event.logicalKey.keyLabel.toLowerCase();
-    switch (key) {
-      case 'e':
-        if (_clickStartPosition != null) {
-          widget.onSetLoopStart(_clickStartPosition!);
-        }
-        return true;
-      case 'd':
-        if (_dragEndPosition != null) {
-          widget.onSetLoopEnd(_dragEndPosition!);
-        } else {
-          widget.onSetLoopEnd(widget.position);
-        }
-        return true;
-      default:
-        return false;
+
+    if (key == 'b') {
+      widget.bpmController.addMark(widget.position);
+      return true;
+    }
+
+    if (key == 'e') {
+      if (_clickStartPosition != null) {
+        widget.onSetLoopStart(_clickStartPosition!);
+      } else {
+        widget.onSetLoopStart(widget.position);
+      }
+      return true;
+    }
+
+    if (key == 'd') {
+      if (_dragEndPosition != null) {
+        widget.onSetLoopEnd(_dragEndPosition!);
+      } else {
+        widget.onSetLoopEnd(widget.position);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  void _handleWaveformTap(TapDownDetails details, double width) {
+    final localX = details.localPosition.dx;
+    final ratio = localX / width;
+    final newDuration = Duration(
+      milliseconds: (widget.duration.inMilliseconds * ratio).toInt(),
+    );
+
+    _player.pause();
+    setState(() => _clickStartPosition = newDuration);
+    widget.onSeek(newDuration);
+  }
+
+  void _handleDragStart(DragStartDetails details, double width) {
+    _player.pause();
+    setState(() {
+      _isDraggingLoop = true;
+      final localX = details.localPosition.dx;
+      final ratio = localX / width;
+      _clickStartPosition = Duration(
+        milliseconds: (widget.duration.inMilliseconds * ratio).toInt(),
+      );
+      _dragEndPosition = null;
+    });
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details, double width) {
+    if (!_isDraggingLoop || _clickStartPosition == null) return;
+    final localX = details.localPosition.dx;
+    final ratio = localX / width;
+    final end = Duration(
+      milliseconds: (widget.duration.inMilliseconds * ratio)
+          .clamp(0, widget.duration.inMilliseconds)
+          .toInt(),
+    );
+    setState(() {
+      _dragEndPosition = end;
+    });
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _isDraggingLoop = false);
+    if (_clickStartPosition != null && _dragEndPosition != null) {
+      final start = _clickStartPosition!;
+      final end = _dragEndPosition!;
+      if (end > start) {
+        widget.onSetLoopStart(start);
+        widget.onSetLoopEnd(end);
+      }
     }
   }
 
   List<Widget> _buildMarkers(double width) {
-    return List.generate(widget.bpmController.bpmMarks.length, (index) {
-      final mark = widget.bpmController.bpmMarks[index];
+    final bpmWidgets = widget.bpmController.bpmMarks.map((mark) {
       final ratio = mark.inMilliseconds / widget.duration.inMilliseconds;
       final x = ratio * width;
 
@@ -104,75 +165,17 @@ class _WaveformViewState extends State<WaveformView> {
                 .clamp(0, widget.duration.inMilliseconds)
                 .toInt(),
           );
-          widget.bpmController.updateMark(index, newPosition);
+          widget.bpmController.updateMark(
+            widget.bpmController.bpmMarks.indexOf(mark),
+            newPosition,
+          );
         },
         onDragEnd: () {},
-        onDelete: () {
-          widget.bpmController.removeMark(mark);
-        },
+        onDelete: () => widget.bpmController.removeMark(mark),
       );
     });
-  }
 
-  void _handleWaveformTap(TapDownDetails details, double width) {
-    final localX = details.localPosition.dx;
-    final ratio = localX / width;
-    final newDuration = Duration(
-      milliseconds: (widget.duration.inMilliseconds * ratio).toInt(),
-    );
-
-    _player.pause();
-
-    setState(() {
-      _clickStartPosition = newDuration;
-    });
-
-    widget.onSeek(newDuration);
-  }
-
-  void _handleDragStart(DragStartDetails details, double width) {
-    _player.pause();
-
-    setState(() {
-      _isDraggingLoop = true;
-      final localX = details.localPosition.dx;
-      final ratio = localX / width;
-      _clickStartPosition = Duration(
-        milliseconds: (widget.duration.inMilliseconds * ratio).toInt(),
-      );
-      _dragEndPosition = null;
-    });
-  }
-
-  void _handleDragUpdate(DragUpdateDetails details, double width) {
-    if (!_isDraggingLoop || _clickStartPosition == null) return;
-
-    final localX = details.localPosition.dx;
-    final ratio = localX / width;
-    final end = Duration(
-      milliseconds: (widget.duration.inMilliseconds * ratio)
-          .clamp(0, widget.duration.inMilliseconds)
-          .toInt(),
-    );
-
-    setState(() {
-      _dragEndPosition = end;
-    });
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    setState(() {
-      _isDraggingLoop = false;
-    });
-
-    if (_clickStartPosition != null && _dragEndPosition != null) {
-      final start = _clickStartPosition!;
-      final end = _dragEndPosition!;
-      if (end > start) {
-        widget.onSetLoopStart(start);
-        widget.onSetLoopEnd(end);
-      }
-    }
+    return bpmWidgets.toList();
   }
 
   @override
@@ -184,76 +187,86 @@ class _WaveformViewState extends State<WaveformView> {
           ZoomControls(
             zoomLevel: _zoom,
             onZoomIn: () {
-              setState(() {
-                _zoom = (_zoom + 0.2).clamp(0.5, 5.0);
-              });
+              setState(() => _zoom = (_zoom + 0.2).clamp(1.0, 5.0));
             },
             onZoomOut: () {
-              setState(() {
-                _zoom = (_zoom - 0.2).clamp(0.5, 5.0);
-              });
+              setState(() => _zoom = (_zoom - 0.2).clamp(1.0, 5.0));
             },
           ),
           const SizedBox(height: 10),
           LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth * _zoom;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (details) => _handleWaveformTap(details, width),
-                onHorizontalDragStart: (details) =>
-                    _handleDragStart(details, width),
-                onHorizontalDragUpdate: (details) =>
-                    _handleDragUpdate(details, width),
-                onHorizontalDragEnd: _handleDragEnd,
-                child: SizedBox(
-                  height: 80,
-                  child: Stack(
-                    children: [
-                      CustomPaint(
-                        size: Size(width, 80),
-                        painter: WaveformPainter(
-                          waveform: widget.waveform,
-                          bpmMarks: widget.bpmController.bpmMarks,
-                          currentPosition: widget.position,
-                          totalDuration: widget.duration,
-                          loopStart: widget.loopStart,
-                          loopEnd: widget.loopEnd,
-                        ),
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) => _handleWaveformTap(details, width),
+                    onHorizontalDragStart: (details) =>
+                        _handleDragStart(details, width),
+                    onHorizontalDragUpdate: (details) =>
+                        _handleDragUpdate(details, width),
+                    onHorizontalDragEnd: _handleDragEnd,
+                    child: SizedBox(
+                      height: 80,
+                      child: Stack(
+                        children: [
+                          CustomPaint(
+                            size: Size(width, 80),
+                            painter: WaveformPainter(
+                              waveform: widget.waveform,
+                              bpmMarks: widget.bpmController.bpmMarks,
+                              currentPosition: widget.position,
+                              totalDuration: widget.duration,
+                              loopStart: widget.loopStart,
+                              loopEnd: widget.loopEnd,
+                              dragStart: _clickStartPosition,
+                              dragEnd: _dragEndPosition,
+                            ),
+                          ),
+                          ..._buildMarkers(width),
+                          if (_clickStartPosition != null)
+                            PlaybackStartMarker(
+                              startPosition: _clickStartPosition,
+                              duration: widget.duration,
+                              width: width,
+                            ),
+                          PlayheadMarker(
+                            position: widget.position,
+                            duration: widget.duration,
+                            width: width,
+                          ),
+                          AbLoopHighlight(
+                            loopStart: widget.loopStart,
+                            loopEnd: widget.loopEnd,
+                            totalDuration: widget.duration,
+                            waveformWidth: width,
+                          ),
+                        ],
                       ),
-                      ..._buildMarkers(width),
-                      if (_clickStartPosition != null)
-                        PlaybackStartMarker(
-                          startPosition: _clickStartPosition!,
-                          duration: widget.duration,
-                          width: width,
-                        ),
-                      PlayheadMarker(
-                        position: widget.position,
-                        duration: widget.duration,
-                        width: width,
-                      ),
-                      AbLoopHighlight(
-                        loopStart: widget.loopStart,
-                        loopEnd: widget.loopEnd,
-                        totalDuration: widget.duration,
-                        waveformWidth: width,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  WaveformTimeline(
+                    duration: widget.duration,
+                    zoom: _zoom,
+                    width: width,
+                  ),
+                  const SizedBox(height: 12),
+                  if (widget.bpmController.calculatedBPM != null)
+                    Text(
+                      '🟡 실시간 BPM: ${widget.bpmController.calculatedBPM!.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
               );
             },
           ),
-          const SizedBox(height: 12),
-          if (widget.bpmController.calculatedBPM != null)
-            Text(
-              '🟡 실시간 BPM: ${widget.bpmController.calculatedBPM!.toStringAsFixed(1)}',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
         ],
       ),
     );
