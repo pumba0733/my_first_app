@@ -23,6 +23,7 @@ dependencies:
   audio_waveforms: ^1.0.6
   flutter_sound_lite: ^8.5.0
   js: ^0.6.5
+  file_picker: ^6.1.1
   
   flutter_localizations:
     sdk: flutter

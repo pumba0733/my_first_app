@@ -2,12 +2,12 @@
 import 'package:flutter/material.dart';
 
 class PitchController extends ChangeNotifier {
-  double _pitch = 0.0;
+  int _pitchSemitone = 0;
 
-  double get pitch => _pitch;
+  int get pitchSemitone => _pitchSemitone;
 
-  void setPitch(double value) {
-    _pitch = value.clamp(-6.0, 6.0);
+  void setPitchSemitone(int value) {
+    _pitchSemitone = value.clamp(-12, 12);
     notifyListeners();
   }
 }

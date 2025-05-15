@@ -61,9 +61,9 @@ class _AudioControllerState extends State<AudioController> {
     }
 
     if (filePath != null) {
-      print('🎧 선택된 파일 경로: $filePath');
-      widget.ytLoader.pause();
-      widget.ytLoader.dispose();
+      debugPrint('🎧 선택된 파일 경로: $filePath');
+      // widget.ytLoader.pause();
+      // widget.ytLoader.dispose();
 
       await widget.player.setAudioSource(
         AudioSource.uri(Uri.file(filePath), tag: filePath),
@@ -87,11 +87,11 @@ class _AudioControllerState extends State<AudioController> {
         final output = result.stdout.toString().trim();
         return output.isNotEmpty ? output : null;
       } else {
-        print('❌ stderr: ${result.stderr}');
+        debugPrint('❌ stderr: ${result.stderr}');
         return null;
       }
     } catch (e) {
-      print('❌ osascript 실행 오류: $e');
+      debugPrint('❌ osascript 실행 오류: $e');
       return null;
     }
   }
@@ -179,7 +179,7 @@ class _AudioControllerState extends State<AudioController> {
                   child: Text('${(s * 100).toInt()}%'),
                 ),
               );
-            }).toList(),
+            }), // ✅ 정확히 수정된 부분
           ],
         ),
         const SizedBox(height: 8),

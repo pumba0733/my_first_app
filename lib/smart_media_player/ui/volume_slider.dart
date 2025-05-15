@@ -1,14 +1,14 @@
-// lib/smart_media_player/ui/pitch_slider.dart
+// lib/smart_media_player/ui/volume_slider.dart
 
 import 'package:flutter/material.dart';
 
-class PitchSlider extends StatelessWidget {
-  final int pitchSemitone;
-  final ValueChanged<int> onChanged;
+class VolumeSlider extends StatelessWidget {
+  final double volume;
+  final ValueChanged<double> onChanged;
 
-  const PitchSlider({
+  const VolumeSlider({
     super.key,
-    required this.pitchSemitone,
+    required this.volume,
     required this.onChanged,
   });
 
@@ -20,7 +20,7 @@ class PitchSlider extends StatelessWidget {
         Row(
           children: [
             const Text(
-              '🎼 피치 조절',
+              '🔊 볼륨 조절',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 8),
@@ -30,7 +30,7 @@ class PitchSlider extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 color: Colors.grey.shade300,
                 child: Text(
-                  '${pitchSemitone >= 0 ? '+' : ''}$pitchSemitone key',
+                  '${(volume * 100).toStringAsFixed(0)}%',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -38,12 +38,12 @@ class PitchSlider extends StatelessWidget {
           ],
         ),
         Slider(
-          min: -12,
-          max: 12,
-          divisions: 24,
-          value: pitchSemitone.toDouble(),
-          onChanged: (double value) => onChanged(value.round()),
-          label: '${pitchSemitone >= 0 ? '+' : ''}$pitchSemitone key',
+          min: 0.0,
+          max: 1.0,
+          divisions: 100,
+          value: volume,
+          onChanged: onChanged,
+          label: '${(volume * 100).toStringAsFixed(0)}%',
         ),
       ],
     );

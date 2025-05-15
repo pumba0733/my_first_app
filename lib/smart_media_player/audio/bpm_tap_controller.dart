@@ -21,6 +21,11 @@ class BpmTapController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ✅ 오류 방지용 별칭 함수
+  void removeBPMMark(Duration position) {
+    removeMark(position);
+  }
+
   void updateMark(int index, Duration newPosition) {
     if (index < 0 || index >= _bpmMarks.length) return;
     _bpmMarks[index] = newPosition;
@@ -42,7 +47,7 @@ class BpmTapController extends ChangeNotifier {
       );
     }
 
-    final avgIntervalMs = intervals.reduce((a, b) => a + b) / intervals.length;
-    _calculatedBPM = avgIntervalMs == 0 ? null : 60000 / avgIntervalMs;
+    final avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+    _calculatedBPM = 60000 / avgInterval;
   }
 }

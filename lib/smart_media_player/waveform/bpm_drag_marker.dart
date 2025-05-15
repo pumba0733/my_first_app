@@ -2,62 +2,33 @@
 
 import 'package:flutter/material.dart';
 
-class BpmDragMarker extends StatefulWidget {
-  final double xPosition;
-  final double height;
-  final VoidCallback onDragStart;
-  final ValueChanged<double> onDragUpdate;
-  final VoidCallback onDragEnd;
-  final VoidCallback onDelete;
+class BpmDragMarker extends StatelessWidget {
+  final Duration position;
+  final Duration duration;
+  final VoidCallback onRemove;
 
   const BpmDragMarker({
     super.key,
-    required this.xPosition,
-    required this.height,
-    required this.onDragStart,
-    required this.onDragUpdate,
-    required this.onDragEnd,
-    required this.onDelete,
+    required this.position,
+    required this.duration,
+    required this.onRemove,
   });
 
   @override
-  State<BpmDragMarker> createState() => _BpmDragMarkerState();
-}
-
-class _BpmDragMarkerState extends State<BpmDragMarker> {
-  bool _hovering = false;
-  bool _dragging = false;
-
-  @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final double ratio = position.inMilliseconds / duration.inMilliseconds;
+    final double xPos = width * ratio;
+
     return Positioned(
-      left: widget.xPosition - 1,
-      top: 0,
+      left: xPos - 1,
+      bottom: 0,
       child: GestureDetector(
-        onTap: widget.onDelete,
-        onHorizontalDragStart: (_) {
-          setState(() => _dragging = true);
-          widget.onDragStart();
-        },
-        onHorizontalDragUpdate: (details) {
-          final newX = widget.xPosition + details.delta.dx;
-          widget.onDragUpdate(newX);
-        },
-        onHorizontalDragEnd: (_) {
-          setState(() => _dragging = false);
-          widget.onDragEnd();
-        },
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovering = true),
-          onExit: (_) => setState(() => _hovering = false),
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            width: 4,
-            height: widget.height,
-            color: _dragging
-                ? Colors.red
-                : (_hovering ? Colors.orange : Colors.blue),
-          ),
+        onTap: onRemove,
+        child: Container(
+          width: 2,
+          height: 10,
+          color: Colors.orange,
         ),
       ),
     );

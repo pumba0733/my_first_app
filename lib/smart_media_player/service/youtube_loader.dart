@@ -8,7 +8,6 @@ class YouTubeLoader {
 
   bool get isInitialized => controller != null;
 
-  /// 유튜브 URL에서 videoId를 추출하고 컨트롤러 초기화
   YoutubePlayerController? load(String url, BuildContext context,
       {VoidCallback? onReady}) {
     final videoId = YoutubePlayer.convertUrlToId(url);
@@ -32,14 +31,8 @@ class YouTubeLoader {
     return controller;
   }
 
-  /// 컨트롤러 해제
-  void dispose() {
-    controller?.dispose();
-    controller = null;
-  }
-
-  /// 영상 일시정지
-  void pause() {
-    controller?.pause();
+  // ✅ 오류 해결용 래퍼 함수
+  YoutubePlayerController? loadFromUrl(String url, BuildContext context) {
+    return load(url, context);
   }
 }

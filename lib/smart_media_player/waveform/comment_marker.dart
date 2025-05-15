@@ -1,16 +1,19 @@
 // lib/smart_media_player/waveform/comment_marker.dart
+
 import 'package:flutter/material.dart';
 
 class CommentMarker extends StatefulWidget {
-  final double xPosition;
   final String label;
-  final VoidCallback? onTap;
+  final Duration position;
+  final double xPosition;
+  final void Function(Duration newPosition) onUpdatePosition;
 
   const CommentMarker({
     super.key,
-    required this.xPosition,
     required this.label,
-    this.onTap,
+    required this.position,
+    required this.xPosition,
+    required this.onUpdatePosition,
   });
 
   @override
@@ -18,23 +21,33 @@ class CommentMarker extends StatefulWidget {
 }
 
 class _CommentMarkerState extends State<CommentMarker> {
-  double? _dragOffset;
+  late double _dragOffset;
+
+  @override
+  void initState() {
+    super.initState();
+    _dragOffset = widget.xPosition;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+
     return Positioned(
-      left: _dragOffset ?? widget.xPosition,
+      left: _dragOffset - 1,
       top: 0,
       child: GestureDetector(
-        onTap: widget.onTap,
         onHorizontalDragUpdate: (details) {
           setState(() {
-            _dragOffset = (widget.xPosition + details.delta.dx)
-                .clamp(0.0, MediaQuery.of(context).size.width);
+            _dragOffset = (_dragOffset + details.delta.dx).clamp(0.0, width);
           });
         },
         onHorizontalDragEnd: (_) {
-          // TODO: 드래그 완료 후 위치 저장 처리 필요 (현재 위치 저장 방식은 smart_media_player.dart에서 추후 반영)
+          final ratio = _dragOffset / width;
+          final newPosition = Duration(
+            milliseconds: (ratio * widget.position.inMilliseconds).round(),
+          );
+          widget.onUpdatePosition(newPosition);
         },
         child: Column(
           children: [

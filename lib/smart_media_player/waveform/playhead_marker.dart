@@ -6,12 +6,14 @@ class PlayheadMarker extends StatelessWidget {
   final Duration position;
   final Duration duration;
   final double width;
+  final Color color;
 
   const PlayheadMarker({
     super.key,
     required this.position,
     required this.duration,
     required this.width,
+    this.color = Colors.red,
   });
 
   @override
@@ -25,7 +27,7 @@ class PlayheadMarker extends StatelessWidget {
       bottom: 0,
       child: Container(
         width: 2,
-        color: Colors.red,
+        color: color,
       ),
     );
   }
@@ -51,11 +53,11 @@ class PlaybackStartMarker extends StatelessWidget {
     final x = ratio * width;
 
     return Positioned(
-      left: x - 4,
+      left: x - 1,
       top: 0,
-      child: Icon(
-        Icons.play_arrow,
-        size: 12,
+      child: Container(
+        width: 2,
+        height: 10,
         color: Colors.green,
       ),
     );
