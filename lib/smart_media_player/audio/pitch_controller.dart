@@ -1,13 +1,16 @@
-// lib/smart_media_player/audio/pitch_controller.dart
-import 'package:flutter/material.dart';
+import 'dart:math';
 
-class PitchController extends ChangeNotifier {
-  int _pitchSemitone = 0;
+class PitchController {
+  int _semitone = 0;
 
-  int get pitchSemitone => _pitchSemitone;
+  int get pitchSemitone => _semitone;
 
   void setPitchSemitone(int value) {
-    _pitchSemitone = value.clamp(-12, 12);
-    notifyListeners();
+    _semitone = value.clamp(-12, 12);
+  }
+
+  /// 피치에 따른 재생 속도 조절값 계산 (반음 단위 → 배속 변환)
+  double getRateFromPitch() {
+    return pow(1.05946309436, _semitone.toDouble()).toDouble();
   }
 }

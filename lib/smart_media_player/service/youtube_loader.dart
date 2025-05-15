@@ -1,38 +1,54 @@
-// lib/smart_media_player/service/youtube_loader.dart
-
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class YouTubeLoader {
-  YoutubePlayerController? controller;
+  YoutubePlayerController? _controller;
 
-  bool get isInitialized => controller != null;
-
-  YoutubePlayerController? load(String url, BuildContext context,
-      {VoidCallback? onReady}) {
+  void loadFromUrl(String url, BuildContext context) {
     final videoId = YoutubePlayer.convertUrlToId(url);
+
     if (videoId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ 유효하지 않은 유튜브 링크입니다')),
+        const SnackBar(content: Text('❌ 유효하지 않은 유튜브 링크입니다.')),
       );
-      return null;
+      return;
     }
 
-    controller?.dispose();
-    controller = YoutubePlayerController(
+    _controller = YoutubePlayerController(
       initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(autoPlay: true),
+      flags: const YoutubePlayerFlags(
+        autoPlay: true,
+        mute: false,
+      ),
     );
 
-    if (onReady != null) {
-      onReady();
-    }
-
-    return controller;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("🎬 유튜브 영상 재생"),
+        content: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: YoutubePlayer(controller: _controller!),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _controller?.pause();
+              _controller?.dispose();
+              Navigator.of(context).pop();
+            },
+            child: const Text('닫기'),
+          )
+        ],
+      ),
+    );
   }
 
-  // ✅ 오류 해결용 래퍼 함수
-  YoutubePlayerController? loadFromUrl(String url, BuildContext context) {
-    return load(url, context);
+  void pause() {
+    _controller?.pause();
+  }
+
+  void dispose() {
+    _controller?.dispose();
   }
 }

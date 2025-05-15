@@ -1,5 +1,3 @@
-// lib/smart_media_player/waveform/comment_marker.dart
-
 import 'package:flutter/material.dart';
 
 class CommentMarker extends StatefulWidget {
@@ -7,6 +5,7 @@ class CommentMarker extends StatefulWidget {
   final Duration position;
   final double xPosition;
   final void Function(Duration newPosition) onUpdatePosition;
+  final VoidCallback onEdit;
 
   const CommentMarker({
     super.key,
@@ -14,6 +13,7 @@ class CommentMarker extends StatefulWidget {
     required this.position,
     required this.xPosition,
     required this.onUpdatePosition,
+    required this.onEdit,
   });
 
   @override
@@ -21,45 +21,29 @@ class CommentMarker extends StatefulWidget {
 }
 
 class _CommentMarkerState extends State<CommentMarker> {
-  late double _dragOffset;
-
-  @override
-  void initState() {
-    super.initState();
-    _dragOffset = widget.xPosition;
-  }
+  bool _isDragging = false;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-
     return Positioned(
-      left: _dragOffset - 1,
+      left: widget.xPosition - 6,
       top: 0,
       child: GestureDetector(
-        onHorizontalDragUpdate: (details) {
+        onTap: widget.onEdit,
+        onPanStart: (_) => setState(() => _isDragging = true),
+        onPanUpdate: (details) {
           setState(() {
-            _dragOffset = (_dragOffset + details.delta.dx).clamp(0.0, width);
+            final newX = widget.xPosition + details.delta.dx;
+            widget
+                .onUpdatePosition(Duration(milliseconds: (newX * 10).toInt()));
           });
         },
-        onHorizontalDragEnd: (_) {
-          final ratio = _dragOffset / width;
-          final newPosition = Duration(
-            milliseconds: (ratio * widget.position.inMilliseconds).round(),
-          );
-          widget.onUpdatePosition(newPosition);
-        },
+        onPanEnd: (_) => setState(() => _isDragging = false),
         child: Column(
           children: [
-            const Icon(Icons.comment, size: 16, color: Colors.blueAccent),
-            Text(
-              widget.label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueAccent,
-              ),
-            ),
+            Text(widget.label,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const Icon(Icons.comment, size: 18, color: Colors.blue),
           ],
         ),
       ),

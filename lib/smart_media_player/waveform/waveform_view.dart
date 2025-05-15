@@ -1,47 +1,46 @@
-// lib/smart_media_player/waveform/waveform_view.dart
 import 'package:flutter/material.dart';
+import 'package:smart_media_player/waveform/ab_loop_highlight.dart';
+import 'package:smart_media_player/waveform/bpm_drag_marker.dart';
+import 'package:smart_media_player/waveform/comment_marker.dart';
+import 'package:smart_media_player/waveform/playhead_marker.dart';
+import 'package:smart_media_player/waveform/waveform_painter.dart';
+
 import '../audio/bpm_tap_controller.dart';
-import 'waveform_painter.dart';
-import 'bpm_drag_marker.dart';
-import 'playhead_marker.dart';
-import 'ab_loop_highlight.dart';
-import 'comment_marker.dart';
 
 class WaveformView extends StatefulWidget {
   final List<double> waveform;
+  final Duration position;
+  final Duration duration;
+  final List<Map<String, dynamic>> comments;
   final List<Duration> bpmMarks;
   final Duration currentPosition;
   final Duration totalDuration;
-  final Duration? playheadPosition;
+  final BpmTapController bpmController;
   final Duration? loopStart;
   final Duration? loopEnd;
-  final BpmTapController bpmController;
-  final List<Map<String, dynamic>> comments;
-  final void Function(Duration) onSeek;
-  final void Function(Duration) onSetLoopStart;
-  final void Function(Duration) onSetLoopEnd;
-  final void Function(String label, Duration newPosition)?
-      onUpdateCommentPosition;
+  final Duration playheadPosition;
+  final Function(Duration) onSeek;
+  final Function(Duration) onSetLoopStart;
+  final Function(Duration) onSetLoopEnd;
+  final Function(String, Duration) onUpdateCommentPosition;
 
-  final Duration position;
-  final Duration duration;
   const WaveformView({
     super.key,
     required this.waveform,
+    required this.position,
+    required this.duration,
+    required this.comments,
     required this.bpmMarks,
     required this.currentPosition,
     required this.totalDuration,
-    this.playheadPosition,
-    this.loopStart,
-    this.loopEnd,
     required this.bpmController,
-    required this.comments,
+    required this.loopStart,
+    required this.loopEnd,
+    required this.playheadPosition,
     required this.onSeek,
     required this.onSetLoopStart,
     required this.onSetLoopEnd,
-    this.onUpdateCommentPosition,
-    required this.position,
-    required this.duration,
+    required this.onUpdateCommentPosition,
   });
 
   @override
@@ -49,100 +48,119 @@ class WaveformView extends StatefulWidget {
 }
 
 class _WaveformViewState extends State<WaveformView> {
-  double? dragStartX;
-  double? dragEndX;
-
-  Duration? get _startDuration {
-    if (dragStartX == null || dragEndX == null) return null;
-    final startRatio = (dragStartX! < dragEndX!) ? dragStartX! : dragEndX!;
-    return widget.totalDuration * (startRatio / context.size!.width);
-  }
-
-  Duration? get _endDuration {
-    if (dragStartX == null || dragEndX == null) return null;
-    final endRatio = (dragStartX! > dragEndX!) ? dragStartX! : dragEndX!;
-    return widget.totalDuration * (endRatio / context.size!.width);
-  }
+  Duration? _clickStartPosition;
+  bool _isDraggingLoop = false;
+  double _zoom = 1.0;
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width * _zoom;
+    final height = 120.0;
+
+    final loopStartRatio = widget.loopStart != null
+        ? widget.loopStart!.inMilliseconds / widget.duration.inMilliseconds
+        : null;
+    final loopEndRatio = widget.loopEnd != null
+        ? widget.loopEnd!.inMilliseconds / widget.duration.inMilliseconds
+        : null;
+
     return GestureDetector(
-      onPanStart: (details) {
+      onTapDown: (details) {
+        final localX = details.localPosition.dx;
+        final ratio = localX / width;
+        final newPos = Duration(
+            milliseconds: (widget.duration.inMilliseconds * ratio).round());
+        widget.onSeek(newPos);
+      },
+      onHorizontalDragStart: (details) {
         setState(() {
-          dragStartX = details.localPosition.dx;
-          dragEndX = null;
+          _isDraggingLoop = true;
+          final dx = details.localPosition.dx;
+          final ratio = dx / width;
+          _clickStartPosition = Duration(
+              milliseconds: (widget.duration.inMilliseconds * ratio).round());
         });
       },
-      onPanUpdate: (details) {
+      onHorizontalDragUpdate: (details) {
         setState(() {
-          dragEndX = details.localPosition.dx;
+          final dx = details.localPosition.dx;
+          final ratio = dx / width;
+          final newPos = Duration(
+              milliseconds: (widget.duration.inMilliseconds * ratio).round());
+          if (_clickStartPosition != null) {
+            if (newPos > _clickStartPosition!) {
+              widget.onSetLoopStart(_clickStartPosition!);
+              widget.onSetLoopEnd(newPos);
+            } else {
+              widget.onSetLoopStart(newPos);
+              widget.onSetLoopEnd(_clickStartPosition!);
+            }
+          }
         });
       },
-      onPanEnd: (_) {
-        if (_startDuration != null && _endDuration != null) {
-          widget.onSetLoopStart(_startDuration!);
-          widget.onSetLoopEnd(_endDuration!);
-        }
+      onHorizontalDragEnd: (_) {
         setState(() {
-          dragStartX = null;
-          dragEndX = null;
+          _isDraggingLoop = false;
         });
       },
-      child: Stack(
-        children: [
-          CustomPaint(
-            size: Size.infinite,
-            painter: WaveformPainter(
-              waveform: widget.waveform,
-              bpmMarks: widget.bpmMarks,
-              currentPosition: widget.currentPosition,
-              totalDuration: widget.totalDuration,
-              loopStart: widget.loopStart,
-              loopEnd: widget.loopEnd,
-              dragStart: _startDuration,
-              dragEnd: _endDuration,
-            ),
-          ),
-          if (widget.loopStart != null && widget.loopEnd != null)
-            AbLoopHighlight(
-              loopStart: widget.loopStart!,
-              loopEnd: widget.loopEnd!,
-              totalDuration: widget.totalDuration,
-            ),
-          if (dragStartX != null && dragEndX != null)
-            Positioned.fill(
-              child: Container(
-                color: const Color.fromARGB(64, 100, 149, 237),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+        ),
+        width: width,
+        height: height,
+        child: Stack(
+          children: [
+            CustomPaint(
+              size: Size(width, height),
+              painter: WaveformPainter(
+                waveform: widget.waveform,
+                position: widget.position,
+                duration: widget.duration,
+                loopStart: widget.loopStart,
+                loopEnd: widget.loopEnd,
+                bpmMarks: widget.bpmMarks,
               ),
             ),
-          if (widget.playheadPosition != null)
+            if (widget.loopStart != null &&
+                widget.loopEnd != null &&
+                !_isDraggingLoop)
+              AbLoopHighlight(
+                startRatio: loopStartRatio ?? 0.0,
+                endRatio: loopEndRatio ?? 0.0,
+                waveformWidth: width,
+                waveformHeight: height,
+              ),
             PlayheadMarker(
-              position: widget.playheadPosition!,
-              duration: widget.totalDuration,
-              width: MediaQuery.of(context).size.width,
+              position: widget.playheadPosition,
+              duration: widget.duration,
+              waveformWidth: width,
+              waveformHeight: height,
+              isPlaybackStart: false,
             ),
-          ...widget.bpmMarks.map((mark) {
-            return BpmDragMarker(
-              position: mark,
-              duration: widget.totalDuration,
-              onRemove: () => widget.bpmController.removeBPMMark(mark),
-            );
-          }),
-          ...widget.comments.map((comment) {
-            final positionRatio = comment['position'].inMilliseconds /
-                widget.totalDuration.inMilliseconds;
-            final x = MediaQuery.of(context).size.width * positionRatio;
-
-            return CommentMarker(
-              label: comment['label'],
-              position: comment['position'],
-              xPosition: x,
-              onUpdatePosition: (newPos) {
-                widget.onUpdateCommentPosition?.call(comment['label'], newPos);
-              },
-            );
-          }),
-        ],
+            for (var comment in widget.comments)
+              CommentMarker(
+                label: comment['label'],
+                position: comment['position'],
+                xPosition: (comment['position'].inMilliseconds /
+                        widget.duration.inMilliseconds) *
+                    width,
+                onUpdatePosition: (newPos) =>
+                    widget.onUpdateCommentPosition(comment['label'], newPos),
+              ),
+            for (var mark in widget.bpmMarks)
+              BpmDragMarker(
+                bpmController: widget.bpmController,
+                position: mark,
+                duration: widget.duration,
+                waveformWidth: width,
+                waveformHeight: height,
+                onUpdate: () {
+                  setState(() {});
+                },
+              ),
+          ],
+        ),
       ),
     );
   }

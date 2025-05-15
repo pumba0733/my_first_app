@@ -1,30 +1,36 @@
 import 'package:flutter/material.dart';
 
-class ZoomControls extends StatelessWidget {
-  final double zoomLevel;
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
+class FeedbackPanel extends StatelessWidget {
+  final List<String> feedbackTags;
+  final Function(String) onRemove;
 
-  const ZoomControls({
+  const FeedbackPanel({
     super.key,
-    required this.zoomLevel,
-    required this.onZoomIn,
-    required this.onZoomOut,
+    required this.feedbackTags,
+    required this.onRemove,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    if (feedbackTags.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IconButton(
-          icon: const Icon(Icons.zoom_out),
-          onPressed: onZoomOut,
+        const Text(
+          '📌 선택된 수업 주제',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        Text('Zoom: ${zoomLevel.toStringAsFixed(1)}x'),
-        IconButton(
-          icon: const Icon(Icons.zoom_in),
-          onPressed: onZoomIn,
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: feedbackTags
+              .map((tag) => Chip(
+                    label: Text(tag),
+                    deleteIcon: const Icon(Icons.close),
+                    onDeleted: () => onRemove(tag),
+                  ))
+              .toList(),
         ),
       ],
     );

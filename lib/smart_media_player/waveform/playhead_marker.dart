@@ -1,65 +1,52 @@
-// lib/smart_media_player/waveform/playhead_marker.dart
-
 import 'package:flutter/material.dart';
 
 class PlayheadMarker extends StatelessWidget {
-  final Duration position;
-  final Duration duration;
-  final double width;
-  final Color color;
-
-  const PlayheadMarker({
-    super.key,
-    required this.position,
-    required this.duration,
-    required this.width,
-    this.color = Colors.red,
-  });
+  final double x;
+  const PlayheadMarker({super.key, required this.x});
 
   @override
   Widget build(BuildContext context) {
-    final ratio = position.inMilliseconds / duration.inMilliseconds;
-    final x = ratio * width;
-
     return Positioned(
-      left: x - 1,
+      left: x,
       top: 0,
       bottom: 0,
       child: Container(
         width: 2,
-        color: color,
+        color: Colors.red,
       ),
     );
   }
 }
 
 class PlaybackStartMarker extends StatelessWidget {
-  final Duration? startPosition;
-  final Duration duration;
-  final double width;
-
-  const PlaybackStartMarker({
-    super.key,
-    required this.startPosition,
-    required this.duration,
-    required this.width,
-  });
+  final double x;
+  const PlaybackStartMarker({super.key, required this.x});
 
   @override
   Widget build(BuildContext context) {
-    if (startPosition == null) return const SizedBox.shrink();
-
-    final ratio = startPosition!.inMilliseconds / duration.inMilliseconds;
-    final x = ratio * width;
-
     return Positioned(
-      left: x - 1,
+      left: x - 6,
       top: 0,
-      child: Container(
-        width: 2,
-        height: 10,
-        color: Colors.green,
+      child: CustomPaint(
+        painter: _TrianglePainter(),
+        size: const Size(12, 12),
       ),
     );
   }
+}
+
+class _TrianglePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.green;
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

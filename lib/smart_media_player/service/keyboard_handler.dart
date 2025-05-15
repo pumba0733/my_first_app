@@ -1,82 +1,119 @@
-// lib/smart_media_player/service/keyboard_handler.dart
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 
+typedef VoidCallback = void Function();
+typedef DurationCallback = void Function(Duration);
+typedef DoubleCallback = void Function(double);
+
 class KeyboardHandler {
   final AudioPlayer player;
-  final void Function(double) onSpeedChange;
-  final void Function() onTogglePlay;
-  final void Function(Duration) onSeekRelative;
-  final void Function()? onAddComment;
-  final void Function()? onSetLoopStart;
-  final void Function()? onSetLoopEnd;
+  final VoidCallback? onTogglePlay;
+  final DurationCallback? onSeekRelative;
+  final DoubleCallback? onSpeedChange;
+  final VoidCallback? onSetLoopStart;
+  final VoidCallback? onSetLoopEnd;
+  final VoidCallback? onAddComment;
+  final VoidCallback? onAddBpm;
 
   bool _isArrowPressed = false;
 
   KeyboardHandler({
     required this.player,
-    required this.onSpeedChange,
-    required this.onTogglePlay,
-    required this.onSeekRelative,
-    this.onAddComment,
+    this.onTogglePlay,
+    this.onSeekRelative,
+    this.onSpeedChange,
     this.onSetLoopStart,
     this.onSetLoopEnd,
+    this.onAddComment,
+    this.onAddBpm,
   });
 
-  bool handleKeyEvent(KeyEvent event) {
-    final key = event.logicalKey.keyLabel.toLowerCase();
+  KeyEventResult handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    // ←/→ 방향키 누르고 있는 동안 1.5배속 재생
-    if ((key == 'arrow left' || key == 'arrow right') && player.playing) {
-      if (event is KeyDownEvent && !_isArrowPressed) {
+    final logicalKey = event.logicalKey;
+
+    // 🔁 ← 방향키: 되감기 1.5x
+    if (logicalKey == LogicalKeyboardKey.arrowLeft && player.playing) {
+      if (!_isArrowPressed) {
         _isArrowPressed = true;
-
-        if (key == 'arrow left') {
-          onSeekRelative(Duration(milliseconds: -500));
-        } else {
-          onSeekRelative(Duration(milliseconds: 500));
-        }
-
         player.setSpeed(1.5);
-      } else if (event is KeyUpEvent) {
-        player.setSpeed(1.0);
-        _isArrowPressed = false;
+        onSeekRelative?.call(const Duration(seconds: -2));
       }
-
-      return true;
+      return KeyEventResult.handled;
     }
 
-    // 템포 ↑↓ 조절
-    if (event is KeyDownEvent) {
-      if (key == 'arrow up') {
-        onSpeedChange(0.05);
-        return true;
-      } else if (key == 'arrow down') {
-        onSpeedChange(-0.05);
-        return true;
+    // ⏩ → 방향키: 빨리감기 1.5x
+    if (logicalKey == LogicalKeyboardKey.arrowRight && player.playing) {
+      if (!_isArrowPressed) {
+        _isArrowPressed = true;
+        player.setSpeed(1.5);
+        onSeekRelative?.call(const Duration(seconds: 2));
       }
+      return KeyEventResult.handled;
     }
 
-    if (event is KeyDownEvent && key == ' ') {
-      onTogglePlay();
-      return true;
+    // ↑ 템포 증가
+    if (logicalKey == LogicalKeyboardKey.arrowUp) {
+      onSpeedChange?.call(0.05);
+      return KeyEventResult.handled;
     }
 
-    if (event is KeyDownEvent && key == 's' && onAddComment != null) {
-      onAddComment!();
-      return true;
+    // ↓ 템포 감소
+    if (logicalKey == LogicalKeyboardKey.arrowDown) {
+      onSpeedChange?.call(-0.05);
+      return KeyEventResult.handled;
     }
 
-    if (event is KeyDownEvent && key == 'e' && onSetLoopStart != null) {
-      onSetLoopStart!();
-      return true;
+    // 숫자키 5~0 → 속도 고정
+    const speedMap = {
+      LogicalKeyboardKey.digit5: 0.5,
+      LogicalKeyboardKey.digit6: 0.6,
+      LogicalKeyboardKey.digit7: 0.7,
+      LogicalKeyboardKey.digit8: 0.8,
+      LogicalKeyboardKey.digit9: 0.9,
+      LogicalKeyboardKey.digit0: 1.0,
+    };
+    if (speedMap.containsKey(logicalKey)) {
+      player.setSpeed(speedMap[logicalKey]!);
+      return KeyEventResult.handled;
     }
 
-    if (event is KeyDownEvent && key == 'd' && onSetLoopEnd != null) {
-      onSetLoopEnd!();
-      return true;
+    // ⏯ Space: 재생/정지
+    if (logicalKey == LogicalKeyboardKey.space) {
+      onTogglePlay?.call();
+      return KeyEventResult.handled;
     }
 
-    return false;
+    // 🔁 E → 반복 시작
+    if (logicalKey == LogicalKeyboardKey.keyE) {
+      onSetLoopStart?.call();
+      return KeyEventResult.handled;
+    }
+
+    // 🔁 D → 반복 끝
+    if (logicalKey == LogicalKeyboardKey.keyD) {
+      onSetLoopEnd?.call();
+      return KeyEventResult.handled;
+    }
+
+    // 💬 S → 코멘트 추가
+    if (logicalKey == LogicalKeyboardKey.keyS) {
+      onAddComment?.call();
+      return KeyEventResult.handled;
+    }
+
+    // 🎯 B → BPM 추가
+    if (logicalKey == LogicalKeyboardKey.keyB) {
+      onAddBpm?.call();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void resetArrowState() {
+    _isArrowPressed = false;
+    player.setSpeed(1.0);
   }
 }

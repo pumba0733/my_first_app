@@ -1,43 +1,32 @@
-// lib/smart_media_player/waveform/ab_loop_highlight.dart
-
 import 'package:flutter/material.dart';
 
 class AbLoopHighlight extends StatelessWidget {
-  final Duration? loopStart;
-  final Duration? loopEnd;
-  final Duration totalDuration;
-  final double? waveformWidth;
-  final double height;
+  final double startRatio;
+  final double endRatio;
+  final double waveformWidth;
+  final double waveformHeight;
 
   const AbLoopHighlight({
     super.key,
-    required this.loopStart,
-    required this.loopEnd,
-    required this.totalDuration,
-    this.waveformWidth,
-    this.height = 80,
+    required this.startRatio,
+    required this.endRatio,
+    required this.waveformWidth,
+    required this.waveformHeight,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (loopStart == null || loopEnd == null) return const SizedBox.shrink();
-
-    final width = waveformWidth ?? MediaQuery.of(context).size.width;
-
-    final startRatio = loopStart!.inMilliseconds / totalDuration.inMilliseconds;
-    final endRatio = loopEnd!.inMilliseconds / totalDuration.inMilliseconds;
-
-    final left = (startRatio * width).clamp(0.0, width);
-    final right = (endRatio * width).clamp(0.0, width);
-    final barWidth = (right - left).clamp(0.0, width - left);
+    final start = (startRatio * waveformWidth).clamp(0.0, waveformWidth);
+    final end = (endRatio * waveformWidth).clamp(0.0, waveformWidth);
+    final width = (end - start).clamp(0.0, waveformWidth);
 
     return Positioned(
-      left: left,
+      left: start,
       top: 0,
+      width: width,
+      height: waveformHeight,
       child: Container(
-        width: barWidth,
-        height: height,
-        color: const Color.fromARGB(77, 33, 150, 243), // 🔵 30% 투명 파란색
+        color: Colors.lightGreen.withOpacity(0.2), // 연한 연두색 하이라이트
       ),
     );
   }

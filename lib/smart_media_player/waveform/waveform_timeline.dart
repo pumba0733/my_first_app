@@ -1,65 +1,65 @@
-// lib/smart_media_player/waveform/waveform_timeline.dart
-
 import 'package:flutter/material.dart';
-import '../service/time_formatter.dart';
 
 class WaveformTimeline extends StatelessWidget {
   final Duration duration;
-  final double zoom;
   final double width;
-  final double height;
 
   const WaveformTimeline({
     super.key,
     required this.duration,
-    required this.zoom,
     required this.width,
-    this.height = 20,
   });
 
   @override
   Widget build(BuildContext context) {
-    final seconds = duration.inSeconds;
-    final pixelsPerSecond = width / duration.inSeconds;
-    final interval = _getOptimalInterval(pixelsPerSecond);
-
-    final marks = <Widget>[];
-    for (int i = 0; i <= seconds; i += interval) {
-      final x = i * pixelsPerSecond;
-      if (x > width) break;
-
-      marks.add(Positioned(
-        left: x - 10,
-        top: 0,
-        child: Text(
-          formatDuration(Duration(seconds: i)),
-          style: const TextStyle(fontSize: 10, color: Colors.grey),
-        ),
-      ));
-
-      marks.add(Positioned(
-        left: x,
-        top: 15,
-        child: Container(
-          width: 1,
-          height: 5,
-          color: Colors.grey,
-        ),
-      ));
-    }
+    final totalSeconds = duration.inSeconds;
+    final step = (totalSeconds / 10).ceil().clamp(1, totalSeconds);
 
     return SizedBox(
-      height: height,
+      height: 20,
       width: width,
-      child: Stack(children: marks),
+      child: CustomPaint(
+        painter: _TimelinePainter(duration: duration, step: step.toInt()),
+      ),
     );
   }
+}
 
-  int _getOptimalInterval(double pixelsPerSecond) {
-    if (pixelsPerSecond > 150) return 1; // 1초 간격
-    if (pixelsPerSecond > 80) return 2;
-    if (pixelsPerSecond > 40) return 5;
-    if (pixelsPerSecond > 20) return 10;
-    return 15;
+class _TimelinePainter extends CustomPainter {
+  final Duration duration;
+  final int step;
+
+  _TimelinePainter({required this.duration, required this.step});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey
+      ..strokeWidth = 1;
+
+    final totalSeconds = duration.inSeconds;
+    final pixelsPerSecond = size.width / totalSeconds;
+
+    for (int i = 0; i <= totalSeconds; i += step) {
+      final x = i * pixelsPerSecond;
+      canvas.drawLine(Offset(x, 0), Offset(x, 10), paint);
+      final textSpan = TextSpan(
+        text: _formatTime(i),
+        style: const TextStyle(fontSize: 10, color: Colors.black),
+      );
+      final textPainter =
+          TextPainter(text: textSpan, textDirection: TextDirection.ltr)
+            ..layout(minWidth: 0, maxWidth: size.width);
+      textPainter.paint(canvas, Offset(x - 10, 10));
+    }
   }
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
 }

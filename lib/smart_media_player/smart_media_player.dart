@@ -4,12 +4,12 @@ import 'package:just_audio/just_audio.dart';
 
 import 'waveform/waveform_view.dart';
 import 'audio/bpm_tap_controller.dart';
+import 'audio/pitch_controller.dart';
 import 'service/youtube_loader.dart';
 import 'service/keyboard_handler.dart';
-import 'audio/pitch_controller.dart';
-import 'ui/pitch_slider.dart';
 import 'ui/tempo_slider.dart';
 import 'ui/volume_slider.dart';
+import 'ui/pitch_slider.dart';
 
 class SmartMediaPlayerScreen extends StatefulWidget {
   const SmartMediaPlayerScreen({super.key});
@@ -24,27 +24,19 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
   final TextEditingController _ytController = TextEditingController();
   final BpmTapController _bpmController = BpmTapController();
   final PitchController _pitchController = PitchController();
+  late KeyboardHandler _keyboardHandler;
 
   double _tempo = 1.0;
   double _volume = 1.0;
   bool _isPlaying = false;
 
-  final List<double> _waveformData = [];
-  final List<Map<String, dynamic>> _comments = [];
+  List<double> _waveform = [];
   Duration? _loopStart;
   Duration? _loopEnd;
-  String _newComment = "";
-
-  late KeyboardHandler _keyboardHandler;
-
-  void _pickFile() {
-    // TODO: 로컬 파일 선택 구현
-    debugPrint("파일 선택 기능 실행됨 (미구현)");
-  }
-
-  void _loadYouTube() {
-    _ytLoader.loadFromUrl(_ytController.text.trim(), context);
-  }
+  Duration _playbackStart = Duration.zero;
+  Duration _position = Duration.zero;
+  Duration _duration = const Duration(seconds: 1);
+  final List<Map<String, dynamic>> _comments = [];
 
   @override
   void initState() {
@@ -56,6 +48,15 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
       onSpeedChange: _adjustSpeedBy,
     );
     HardwareKeyboard.instance.addHandler(_keyboardHandler.handleKeyEvent);
+    _player.positionStream.listen((pos) {
+      setState(() => _position = pos);
+      if (_loopStart != null && _loopEnd != null && pos >= _loopEnd!) {
+        _player.seek(_loopStart!);
+      }
+    });
+    _player.durationStream.listen((d) {
+      if (d != null) setState(() => _duration = d);
+    });
   }
 
   @override
@@ -69,11 +70,10 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
     if (_player.playing) {
       await _player.pause();
     } else {
+      await _player.seek(_playbackStart);
       await _player.play();
     }
-    setState(() {
-      _isPlaying = _player.playing;
-    });
+    setState(() => _isPlaying = _player.playing);
   }
 
   void _seekRelative(Duration offset) {
@@ -83,15 +83,24 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
 
   void _adjustSpeedBy(double delta) {
     setState(() {
-      _tempo = (_tempo + delta).clamp(0.1, 2.0);
+      _tempo = (_tempo + delta).clamp(0.5, 2.0);
       _player.setSpeed(_tempo);
     });
+  }
+
+  void _pickFile() {
+    // TODO: file_picker 기반 로컬 파일 선택 구현
+    debugPrint("📁 파일 선택 기능 호출됨 (구현 예정)");
+  }
+
+  void _loadYouTube() {
+    _ytLoader.loadFromUrl(_ytController.text.trim(), context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("SmartMediaPlayer v3.3")),
+      appBar: AppBar(title: const Text("SmartMediaPlayer v3.4")),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -113,13 +122,45 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade400),
+              ),
+              height: 120,
+              child: WaveformView(
+                waveform: _waveform,
+                bpmMarks: _bpmController.bpmMarks,
+                currentPosition: _position,
+                totalDuration: _duration,
+                playheadPosition: _position,
+                loopStart: _loopStart,
+                loopEnd: _loopEnd,
+                bpmController: _bpmController,
+                comments: _comments,
+                position: _position,
+                duration: _duration,
+                onSeek: (pos) => _player.seek(pos),
+                onSetLoopStart: (pos) => setState(() => _loopStart = pos),
+                onSetLoopEnd: (pos) => setState(() => _loopEnd = pos),
+                onUpdateCommentPosition: (label, newPos) {
+                  setState(() {
+                    final index =
+                        _comments.indexWhere((c) => c['label'] == label);
+                    if (index != -1) {
+                      _comments[index]['position'] = newPos;
+                    }
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 GestureDetector(
                   onTapDown: (_) => _player.setSpeed(1.5),
                   onTapUp: (_) => _player.setSpeed(_tempo),
-                  child: const Icon(Icons.fast_rewind, size: 32),
+                  child: const Icon(Icons.fast_rewind, size: 36),
                 ),
                 const SizedBox(width: 24),
                 IconButton(
@@ -131,143 +172,89 @@ class _SmartMediaPlayerScreenState extends State<SmartMediaPlayerScreen> {
                 GestureDetector(
                   onTapDown: (_) => _player.setSpeed(1.5),
                   onTapUp: (_) => _player.setSpeed(_tempo),
-                  child: const Icon(Icons.fast_forward, size: 32),
+                  child: const Icon(Icons.fast_forward, size: 36),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: StreamBuilder<Duration>(
-                stream: _player.positionStream,
-                builder: (context, snapshot) {
-                  final position = snapshot.data ?? Duration.zero;
-                  final duration =
-                      _player.duration ?? const Duration(seconds: 1);
-
-                  return Column(
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
-                        ),
-                        height: 120,
-                        child: WaveformView(
-                          waveform: _waveformData,
-                          bpmMarks: _bpmController.bpmMarks,
-                          currentPosition: position,
-                          totalDuration: duration,
-                          playheadPosition: position,
-                          loopStart: _loopStart,
-                          loopEnd: _loopEnd,
-                          bpmController: _bpmController,
-                          comments: _comments,
-                          position: _player.position,
-                          duration: _player.duration ?? Duration.zero,
-                          onSeek: (pos) => _player.seek(pos),
-                          onSetLoopStart: (pos) =>
-                              setState(() => _loopStart = pos),
-                          onSetLoopEnd: (pos) => setState(() => _loopEnd = pos),
-                          onUpdateCommentPosition: (label, newPos) {
-                            setState(() {
-                              final index = _comments
-                                  .indexWhere((c) => c['label'] == label);
-                              if (index != -1) {
-                                _comments[index]['position'] = newPos;
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              children: [
-                                const Text('⏱ 템포'),
-                                TempoSlider(
-                                  tempo: _tempo,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _tempo = value;
-                                      _player.setSpeed(_tempo);
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                const Text('🔉 볼륨'),
-                                VolumeSlider(
-                                  volume: _volume,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _volume = value;
-                                      _player.setVolume(_volume);
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: PitchSlider(
-                              pitchSemitone: _pitchController.pitchSemitone,
-                              onChanged: (value) {
-                                setState(() {
-                                  _pitchController.setPitchSemitone(value);
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Wrap(
-                            spacing: 6,
-                            children: [50, 60, 70, 80, 90, 100].map((percent) {
-                              return ElevatedButton(
-                                onPressed: () {
-                                  final newTempo = percent / 100.0;
-                                  setState(() {
-                                    _tempo = newTempo;
-                                    _player.setSpeed(_tempo);
-                                  });
-                                },
-                                child: Text('$percent%'),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        decoration: const InputDecoration(
-                          labelText: '💬 코멘트 입력',
-                          border: OutlineInputBorder(), // 깨짐 방지
-                        ),
-                        onSubmitted: (text) {
+                      const Text('⏱ 템포'),
+                      TempoSlider(
+                        tempo: _tempo,
+                        onChanged: (value) {
                           setState(() {
-                            final label =
-                                String.fromCharCode(97 + _comments.length);
-                            _comments.add({
-                              "label": label,
-                              "position": _player.position,
-                              "text": text
-                            });
+                            _tempo = value;
+                            _player.setSpeed(_tempo);
                           });
                         },
                       ),
                     ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text('🔉 볼륨'),
+                      VolumeSlider(
+                        volume: _volume,
+                        onChanged: (value) {
+                          setState(() {
+                            _volume = value;
+                            _player.setVolume(_volume);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: PitchSlider(
+                    pitchSemitone: _pitchController.pitchSemitone,
+                    onChanged: (value) {
+                      setState(() {
+                        _pitchController.setPitchSemitone(value);
+                      });
+                    },
+                  ),
+                ),
+                ...[0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map((s) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _tempo = s;
+                          _player.setSpeed(_tempo);
+                        });
+                      },
+                      child: Text('${(s * 100).toInt()}%'),
+                    ),
                   );
-                },
-              ),
+                }),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              decoration: const InputDecoration(labelText: '💬 코멘트 입력'),
+              onSubmitted: (text) {
+                setState(() {
+                  final label = String.fromCharCode(97 + _comments.length);
+                  _comments.add({
+                    "label": label,
+                    "position": _player.position,
+                    "text": text
+                  });
+                });
+              },
             ),
           ],
         ),

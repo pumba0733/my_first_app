@@ -1,16 +1,14 @@
-// lib/smart_media_player/audio/bpm_tap_controller.dart
 import 'package:flutter/material.dart';
 
 class BpmTapController extends ChangeNotifier {
   final List<Duration> _bpmMarks = [];
   double? _calculatedBPM;
 
-  List<Duration> get bpmMarks => List.unmodifiable(_bpmMarks);
+  List<Duration> get bpmMarks => _bpmMarks;
   double? get calculatedBPM => _calculatedBPM;
 
   void addMark(Duration position) {
     _bpmMarks.add(position);
-    _bpmMarks.sort((a, b) => a.inMilliseconds.compareTo(b.inMilliseconds));
     _calculateBPM();
     notifyListeners();
   }
@@ -21,16 +19,16 @@ class BpmTapController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ 오류 방지용 별칭 함수
-  void removeBPMMark(Duration position) {
-    removeMark(position);
-  }
-
   void updateMark(int index, Duration newPosition) {
     if (index < 0 || index >= _bpmMarks.length) return;
     _bpmMarks[index] = newPosition;
-    _bpmMarks.sort((a, b) => a.inMilliseconds.compareTo(b.inMilliseconds));
     _calculateBPM();
+    notifyListeners();
+  }
+
+  void clear() {
+    _bpmMarks.clear();
+    _calculatedBPM = null;
     notifyListeners();
   }
 
@@ -39,15 +37,18 @@ class BpmTapController extends ChangeNotifier {
       _calculatedBPM = null;
       return;
     }
-
-    final intervals = <int>[];
-    for (int i = 1; i < _bpmMarks.length; i++) {
-      intervals.add(
-        _bpmMarks[i].inMilliseconds - _bpmMarks[i - 1].inMilliseconds,
-      );
+    _bpmMarks.sort((a, b) => a.compareTo(b));
+    final intervals = <Duration>[];
+    for (var i = 1; i < _bpmMarks.length; i++) {
+      intervals.add(_bpmMarks[i] - _bpmMarks[i - 1]);
     }
-
-    final avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
-    _calculatedBPM = 60000 / avgInterval;
+    final avgInterval =
+        intervals.map((d) => d.inMilliseconds).reduce((a, b) => a + b) /
+            intervals.length;
+    if (avgInterval == 0) {
+      _calculatedBPM = null;
+    } else {
+      _calculatedBPM = 60000 / avgInterval;
+    }
   }
 }

@@ -1,17 +1,19 @@
-// lib/smart_media_player/service/custom_waveform_generator_web.dart
+import 'dart:js' as js;
+import 'custom_waveform_generator.dart';
 
-@JS()
-import 'package:js/js.dart';
-import 'package:js/js_util.dart';
-
-@JS('generateWaveformFromAudio')
-external dynamic _generateWaveformFromAudio(String url);
-
-Future<List<double>> generateWaveform(String url) async {
-  final dynamic result = await promiseToFuture(_generateWaveformFromAudio(url));
-  if (result is List) {
-    return List<double>.from(result.map((e) => e.toDouble()));
-  } else {
-    throw Exception('Unexpected waveform format from JS');
+class CustomWaveformGeneratorImpl implements CustomWaveformGenerator {
+  @override
+  Future<List<double>> generateWaveform(String filePath) async {
+    try {
+      final result =
+          js.context.callMethod('generateWaveformFromUrl', [filePath]);
+      if (result is List) {
+        return result.map((e) => (e as num).toDouble()).toList();
+      }
+    } catch (e) {
+      // JS interop 실패 시 빈 파형 반환
+      return [];
+    }
+    return [];
   }
 }
